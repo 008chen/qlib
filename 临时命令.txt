@@ -1,0 +1,6 @@
+// 临时修改环境变量
+$env:PATH = "C:\Users\17284\AppData\Local\Programs\Python\Python312;C:\Users\17284\AppData\Local\Programs\Python\Python312\Scripts"
+ 
+ 
+// 安装程序
+C:\Users\17284\AppData\Local\Programs\Python\Python312\python.exe -m pip install -e .
