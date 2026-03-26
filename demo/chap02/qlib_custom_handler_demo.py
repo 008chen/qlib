@@ -49,15 +49,15 @@ class CustomDataHandler(Alpha158):
         """使用Alpha158的配置格式但返回更少特征用于演示"""
         # 简化版本：使用Alpha158的基础配置但限制特征数量
         conf = {
-            "kbar": {},
+            # "kbar": {},
             "price": {
                 "windows": [0],
                 "feature": ["OPEN", "HIGH", "LOW", "CLOSE", "VWAP"],
             },
-            "rolling": {
-                "windows": [5, 10, 20],
-                "feature": ["ROC", "MA", "STD"],
-            },
+            # "rolling": {
+            #     "windows": [5, 10, 20],
+            #     "feature": ["ROC", "MA", "STD"],
+            # },
         }
         from qlib.contrib.data.loader import Alpha158DL
         return Alpha158DL.get_feature_config(conf)
@@ -72,48 +72,48 @@ class CustomDataHandler(Alpha158):
             # 基础价格数据
             '$open', '$high', '$low', '$close', '$volume',
             
-            # 收益率特征
-            '$close / Ref($close, 1) - 1',      # 1日收益率
-            '$close / Ref($close, 5) - 1',      # 5日收益率
-            '$close / Ref($close, 10) - 1',     # 10日收益率
-            '$close / Ref($close, 20) - 1',     # 20日收益率
+            # # 收益率特征
+            # '$close / Ref($close, 1) - 1',      # 1日收益率
+            # '$close / Ref($close, 5) - 1',      # 5日收益率
+            # '$close / Ref($close, 10) - 1',     # 10日收益率
+            # '$close / Ref($close, 20) - 1',     # 20日收益率
             
-            # 移动平均特征
-            'Mean($close, 5)',                  # 5日均线
-            'Mean($close, 10)',                 # 10日均线
-            'Mean($close, 20)',                 # 20日均线
-            'Mean($close, 60)',                 # 60日均线
+            # # 移动平均特征
+            # 'Mean($close, 5)',                  # 5日均线
+            # 'Mean($close, 10)',                 # 10日均线
+            # 'Mean($close, 20)',                 # 20日均线
+            # 'Mean($close, 60)',                 # 60日均线
             
-            # 波动率特征
-            'Std($close, 5)',                   # 5日波动率
-            'Std($close, 10)',                  # 10日波动率
-            'Std($close, 20)',                  # 20日波动率
+            # # 波动率特征
+            # 'Std($close, 5)',                   # 5日波动率
+            # 'Std($close, 10)',                  # 10日波动率
+            # 'Std($close, 20)',                  # 20日波动率
             
-            # 价格位置特征
-            '($close - Mean($close, 20)) / Std($close, 20)',  # 标准化价格位置
-            '($close - Min($close, 20)) / (Max($close, 20) - Min($close, 20))',  # 相对位置
+            # # 价格位置特征
+            # '($close - Mean($close, 20)) / Std($close, 20)',  # 标准化价格位置
+            # '($close - Min($close, 20)) / (Max($close, 20) - Min($close, 20))',  # 相对位置
             
-            # 成交量特征
-            'Mean($volume, 5)',                 # 5日平均成交量
-            'Mean($volume, 20)',                # 20日平均成交量
-            '$volume / Mean($volume, 20)',      # 成交量比率
-            'Std($volume, 20)',                 # 成交量波动率
+            # # 成交量特征
+            # 'Mean($volume, 5)',                 # 5日平均成交量
+            # 'Mean($volume, 20)',                # 20日平均成交量
+            # '$volume / Mean($volume, 20)',      # 成交量比率
+            # 'Std($volume, 20)',                 # 成交量波动率
             
             # 量价特征
             'Corr($close, $volume, 10)',        # 10日价量相关性
-            'Corr($close / Ref($close, 1) - 1, $volume / Ref($volume, 1) - 1, 10)',  # 收益率与成交量变化相关性
+            # 'Corr($close / Ref($close, 1) - 1, $volume / Ref($volume, 1) - 1, 10)',  # 收益率与成交量变化相关性
             
-            # 趋势特征
-            'Mean($close > Ref($close, 1), 10)', # 10日上涨概率
-            'Mean($close > Mean($close, 20), 10)', # 10日均线上方概率
+            # # 趋势特征
+            # 'Mean($close > Ref($close, 1), 10)', # 10日上涨概率
+            # 'Mean($close > Mean($close, 20), 10)', # 10日均线上方概率
             
-            # 动量特征
-            '($close - Ref($close, 10)) / Ref($close, 10)',  # 10日动量
-            'Max($close, 20) / Min($close, 20) - 1',         # 20日振幅
+            # # 动量特征
+            # '($close - Ref($close, 10)) / Ref($close, 10)',  # 10日动量
+            # 'Max($close, 20) / Min($close, 20) - 1',         # 20日振幅
             
-            # 高级特征
-            'RSI($close, 14)',                  # RSI指标（如果支持）
-            'MACD($close)',                     # MACD指标（如果支持）
+            # # 高级特征
+            # 'RSI($close, 14)',                  # RSI指标（如果支持）
+            # 'MACD($close)',                     # MACD指标（如果支持）
         ]
         
         # 过滤可能不支持的字段
@@ -127,6 +127,7 @@ class CustomDataHandler(Alpha158):
     def get_feature_info(self) -> Dict[str, Any]:
         """获取特征配置信息（用于演示）"""
         fields = self._get_custom_fields()
+        # print(fields)
         return {
             "feature_count": len(fields),
             "label_count": 1,
@@ -280,6 +281,8 @@ def demo_custom_handler():
     print(f"\n训练数据形状:")
     print(f"- 特征: {features.shape}")
     print(f"- 标签: {labels.shape}")
+    
+    print(features)
 
 def demo_industry_rotation_handler():
     """演示行业轮动处理器"""

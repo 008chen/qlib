@@ -13,7 +13,7 @@ def demo_expression_support():
     # 复杂表达式示例
     complex_fields = [
         '$close',                           # 收盘价
-        'Ref($close, 1)',                  # 前一日收盘价
+        'Ref($close, 1)',                  # 前一日收盘价  ，Reference的缩写
         'Mean($close, 20)',                # 20日移动平均
         '$close / Ref($close, 1) - 1',     # 日收益率
         'Std($close, 20)',                 # 20日标准差
@@ -28,7 +28,7 @@ def demo_expression_support():
     # 获取表达式数据
     data = D.features(
         instruments=['SH600000'],
-        fields=complex_fields,
+        fields=complex_fields,  # 可以使用表达式或代码构建特征
         start_time='2020-01-01',
         end_time='2020-01-31',
         freq='day'

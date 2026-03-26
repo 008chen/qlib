@@ -10,6 +10,9 @@ from qlib.contrib.data.handler import Alpha158
 import numpy as np
 import pandas as pd
 
+
+
+    
 if __name__ == '__main__':
     # 初始化Qlib
     print("初始化Qlib...")
@@ -27,6 +30,8 @@ if __name__ == '__main__':
     print("创建数据集...")
     from qlib.data.dataset import DatasetH
     
+    
+    # <class 'qlib.data.dataset.DatasetH'>
     dataset = DatasetH(
         handler=handler,
         segments={
@@ -37,6 +42,7 @@ if __name__ == '__main__':
     
     # 准备训练数据
     print("准备数据...")
+    # 这会返回 DataFrame
     train_data = dataset.prepare('train')
     test_data = dataset.prepare('test')
     
@@ -60,7 +66,8 @@ if __name__ == '__main__':
     )
     
     # 训练模型
-    model.fit(X_train, y_train)
+    # model.fit(X_train, y_train)
+    model.fit(dataset)
     
     print("\n=== 特征重要性分析 ===")
     
@@ -125,6 +132,9 @@ if __name__ == '__main__':
             # 选择前N个重要特征
             top_features = feature_importance.head(n_features)['feature'].tolist()
             
+            
+            print(f"top_features：{top_features}")
+            
             # 使用选定特征训练新模型
             X_train_selected = X_train[top_features]
             X_test_selected = X_test[top_features]
@@ -138,7 +148,16 @@ if __name__ == '__main__':
                 verbose=-1
             )
             
-            selected_model.fit(X_train_selected, y_train)
+            dataset_selected = DatasetH(
+                handler=handler,
+                segments={
+                    'train': ('2020-01-01', '2020-06-30'),
+                    'test': ('2020-10-01', '2020-12-31')
+                }
+            )
+    
+            selected_model.fit(dataset_selected)
+            # selected_model.fit(X_train_selected, y_train)
             pred = selected_model.predict(X_test_selected)
             
             # 计算性能

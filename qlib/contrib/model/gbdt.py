@@ -74,6 +74,7 @@ class LGBModel(ModelFT, LightGBMFInt):
         # NOTE: if you encounter error here. Please upgrade your lightgbm
         verbose_eval_callback = lgb.log_evaluation(period=verbose_eval)
         evals_result_callback = lgb.record_evaluation(evals_result)
+        print("🚀 开始训练模型...")
         self.model = lgb.train(
             self.params,
             ds[0],  # training dataset

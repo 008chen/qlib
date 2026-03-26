@@ -9,43 +9,60 @@ from qlib.contrib.data.handler import Alpha158
 from qlib.data.dataset import DatasetH
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 import numpy as np
+from qlib.data import D
+
+import logging
 
 
-
-def calculate_sma(close_price, window=20):
-    return close_price.rolling(window=window).mean()
+def calculate_ma(data, window=20):
+    return data.rolling(window=window).mean()
 if __name__ == '__main__':
     # 初始化Qlib
     print("初始化Qlib...")
-    qlib.init(mount_path="~/.qlib/qlib_data/cn_data", region="cn")
+    qlib.init(mount_path="~/.qlib/qlib_data/cn_data", region="cn",logging_level=logging.DEBUG)
     
 
     stockpool=['sz300840']
-    # 准备数据处理器
-    handler = Alpha158(
-        instruments=stockpool,
-        start_time='2023-01-01',
-        end_time='2026-03-20',
-        freq='day'
-    )
+    # # 准备数据处理器
+    # handler = Alpha158(
+    #     instruments=stockpool,
+    #     start_time='2023-01-01',
+    #     end_time='2026-03-20',
+    #     freq='day'
+    # )
     
     # 创建数据集
     print("创建数据集...")
-    dataset = DatasetH(
-        handler=handler,
-        segments={
-            'train': ('2023-01-01', '2025-01-01'),
-            'test': ('2025-01-02', '2026-01-01')
-        }
-    )
+    # dataset = DatasetH(
+    #     handler=handler,
+    #     segments={
+    #         'train': ('2023-01-01', '2025-01-01'),
+    #         'test': ('2025-01-02', '2026-01-01')
+    #     }
+    # )
+
     
+    data = D.features(
+        instruments=stockpool,
+        fields=["$close", "$volume", "$open"],
+        start_time="2023-01-01",
+        end_time="2026-03-20",
+        freq="day"
+    )
     # 准备训练数据
     print("准备数据...")
-    train_data = dataset.prepare('train')
-    test_data = dataset.prepare('test')
+    data['MA5'] = calculate_ma(data['$close'], 5)
     
-    print(train_data.shape)
-    print(train_data.tail(20))
+    # 创建标签（预测未来1天的收益率）
+    data['LABEL0'] = data['$close'].shift(-1) / data['$close'] - 1
+    
+    train_end = '2025-01-01'
+    test_start = '2025-01-02'
+    # train_data = data.prepare('train')
+    # test_data = data.prepare('test')
+    
+    train_data = data.loc[data.index.get_level_values('datetime') <= train_end]
+    test_data = data.loc[data.index.get_level_values('datetime') >= test_start]
     
     # 分离特征和标签
     X_train = train_data.drop('LABEL0', axis=1)
@@ -67,8 +84,6 @@ if __name__ == '__main__':
     # 1. 基础线性回归
     print("\n1. 基础线性回归:")
     linear_model = LinearRegression()
-    
-    # qlib中入参始终是特征工程
     linear_model.fit(X_train, y_train)
     linear_pred = linear_model.predict(X_test)
     
