@@ -21,7 +21,7 @@ class BaseDFilter(abc.ABC):
 
     Override filter_main to use the regulations to filter instruments
     """
-
+    # 通自定义Filter时，需要重载__init__()方法，在该方法中输入我们的regulations参数，包括但不限于：正则表达式（NameDFilter）、Qlib expression（ExpressionDFilter）。通俗解释为我们在这个__init__()方法中需要初始化我们的筛选（过滤）规则
     def __init__(self):
         pass
 
@@ -213,6 +213,8 @@ class SeriesDFilter(BaseDFilter):
         """
         raise NotImplementedError("Subclass of SeriesDFilter must reimplement `getFilterSeries` method")
 
+
+    # 重载filter_main方法使用__init__()中输入的regulation参数来filter我们的instruments。通俗解释为我们在这个filter_main()函数中完成筛选（过滤）操作
     def filter_main(self, instruments, start_time=None, end_time=None):
         """Implement this method to filter the instruments.
 

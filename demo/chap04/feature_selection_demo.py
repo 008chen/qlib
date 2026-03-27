@@ -27,11 +27,15 @@ def filter_feature_selection(X, y, method='f_regression', k=50):
     assert not y.isna().any(), "标签数据包含NaN值"
     
     if method == 'f_regression':
+        # 选择得分最高的k个特征
         selector = SelectKBest(score_func=f_regression, k=k)
     else:
         raise ValueError(f"不支持的方法: {method}")
     
+    # 3. 拟合并转换数据
     X_selected = selector.fit_transform(X, y)
+    
+    # 4. 查看被选中的特征
     selected_features = X.columns[selector.get_support()].tolist()
     
     return X_selected, selected_features, selector.scores_
@@ -43,8 +47,12 @@ def wrapper_feature_selection(X, y, n_features=50):
     assert not y.isna().any(), "标签数据包含NaN值"
     
     estimator = LinearRegression()
+    # RFE 是一种包装式 (Wrapper) 特征选择方法。它的核心思想是递归地构建模型，并根据模型的表现逐步剔除最不重要的特征，直到达到预设的特征数量
+    # n_features_to_select: 最终要保留的特征数量
     selector = RFE(estimator, n_features_to_select=n_features)
     
+    
+    # 拟合并转换数据
     X_selected = selector.fit_transform(X, y)
     selected_features = X.columns[selector.support_].tolist()
     

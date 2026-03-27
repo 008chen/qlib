@@ -30,15 +30,36 @@ def time_series_split(data, train_ratio=0.6, valid_ratio=0.2, test_ratio=0.2):
     
     return train_data, valid_data, test_data
 
+
+
+
+# 假设 data 长度为 500，window_size=100，step_size=50：
+# 第一轮 (i=0):
+# 训练集: 索引 0 到 100
+# 验证集: 索引 100 到 150
+# 第二轮 (i=50):
+# 训练集: 索引 50 到 150 (窗口向前滚动了50)
+# 验证集: 索引 150 到 200
+# 第三轮 (i=100):
+# 训练集: 索引 100 到 200
+# 验证集: 索引 200 到 250
 def rolling_window_split(data, window_size=252, step_size=63):
     """滚动窗口分割"""
     splits = []
     
     for i in range(0, len(data) - window_size, step_size):
+        # 1. 确定训练集的起止位置
         train_start = i
         train_end = i + window_size
+        
+        # 2. 确定验证集的结束位置
+        # 验证集紧接在训练集之后，长度通常为 step_size
+        # 使用 min 函数是为了防止索引越界（处理数据末尾不足一个步长的情况）
         valid_end = min(train_end + step_size, len(data))
         
+        
+        # 安全检查：如果验证集结束位置没有超过训练集结束位置，
+        # 说明剩余数据不足以构成有效的验证集，直接跳出循环
         if valid_end <= train_end:
             break
             

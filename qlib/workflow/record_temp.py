@@ -29,6 +29,7 @@ class RecordTemp:
     """
     This is the Records Template class that enables user to generate experiment results such as IC and
     backtest in a certain format.
+    即给读者一个类模板，方便使用者继承该类来定义一个用于生成符合某种规范的预测或回测记录的子类
     """
 
     artifact_path = None
@@ -50,6 +51,7 @@ class RecordTemp:
         """
         It behaves the same as self.recorder.save_objects.
         But it is an easier interface because users don't have to care about `get_path` and `artifact_path`
+        将record保存到默认路径下：./mlrun/{experiment_id}/{recorder_id}/{}
         """
         art_path = self.get_path()
         if art_path == "":
@@ -68,7 +70,8 @@ class RecordTemp:
     def generate(self, **kwargs):
         """
         Generate certain records such as IC, backtest etc., and save them.
-
+        这个方法的核心功能为产生和保存特定的记录，如 IC分数, 回测结果等
+        
         Parameters
         ----------
         kwargs
@@ -82,7 +85,8 @@ class RecordTemp:
         """
         It behaves the same as self.recorder.load_object.
         But it is an easier interface because users don't have to care about `get_path` and `artifact_path`
-
+        通过名字返回保存的record
+        
         Parameters
         ----------
         name : str
@@ -110,6 +114,7 @@ class RecordTemp:
         """
         List the supported artifacts.
         Users don't have to consider self.get_path
+        列出支持的artifacts，这样使用者就不用使用self.get_path来获取artifacts
 
         Return
         ------
@@ -121,7 +126,8 @@ class RecordTemp:
         """
         Check if the records is properly generated and saved.
         It is useful in following examples
-
+        检查records是否被正确地生成和保存
+        
         - checking if the dependant files complete before generating new things.
         - checking if the final files is completed
 
@@ -162,7 +168,9 @@ class SignalRecord(RecordTemp):
     """
     This is the Signal Record class that generates the signal prediction. This class inherits the ``RecordTemp`` class.
     """
-
+    
+    
+    # 需要model、dataset和recorder来初始化一个实例
     def __init__(self, model=None, dataset=None, recorder=None):
         super().__init__(recorder=recorder)
         self.model = model
@@ -189,20 +197,25 @@ class SignalRecord(RecordTemp):
 
     def generate(self, **kwargs):
         # generate prediction
+         # 生成预测结果
         pred = self.model.predict(self.dataset)
         if isinstance(pred, pd.Series):
             pred = pred.to_frame("score")
+            
+        #  将.pkl文件存放到默认地址，一般情况下为./mlrun/{experiment_id}/{recorder_id}/artifacts/pred.pkl
         self.save(**{"pred.pkl": pred})
 
         logger.info(
             f"Signal record 'pred.pkl' has been saved as the artifact of the Experiment {self.recorder.experiment_id}"
         )
         # print out results
+        # 打印出前5个预测结果
         pprint(f"The following are prediction results of the {type(self.model).__name__} model.")
         pprint(pred.head(5))
 
         if isinstance(self.dataset, DatasetH):
             raw_label = self.generate_label(self.dataset)
+            # 存到./mlrun/{experiment_id}/{recorder_id}/artifacts/pred.pkl
             self.save(**{"label.pkl": raw_label})
 
     def list(self):
@@ -394,26 +407,34 @@ class PortAnaRecord(ACRecordTemp):
         indicator_analysis_method : str, optional, default by None
             the candidate values include 'mean', 'amount_weighted', 'value_weighted'
         """
+        # 需要传入config，且config内要有strategy，executor和backtest的参数设置，他们分别代表了：策略、（回测）执行器和回测设置。
+        # 在执行PortAnaRecord.generate()前，需要先生成pred.pkl文件，在接下来的代码中，我们先执行了SignalRecord.generate()生成pred.pkl和label.pkl文件。
         super().__init__(recorder=recorder, skip_existing=skip_existing, **kwargs)
 
         if config is None:
             config = {  # Default config for daily trading
+                # 策略
                 "strategy": {
                     "class": "TopkDropoutStrategy",
                     "module_path": "qlib.contrib.strategy",
-                    "kwargs": {"signal": "<PRED>", "topk": 50, "n_drop": 5},
+                    "kwargs": {
+                        "signal": "<PRED>", 
+                               "topk": 50, # 选择得分前50的股票作为投资组合
+                               "n_drop": 5 # 每个投资周期去除的股票
+                    },
                 },
+                # 回测
                 "backtest": {
                     "start_time": None,
                     "end_time": None,
-                    "account": 100000000,
-                    "benchmark": "SH000300",
+                    "account": 100000000,  # 初始资金
+                    "benchmark": "SH000300",# 基准，这里设置为benchmark=csi300
                     "exchange_kwargs": {
-                        "limit_threshold": 0.095,
-                        "deal_price": "close",
-                        "open_cost": 0.0005,
-                        "close_cost": 0.0015,
-                        "min_cost": 5,
+                        "limit_threshold": 0.095, # 最多移动多少比例
+                        "deal_price": "close", # 收盘价买入
+                        "open_cost": 0.0005, # 开仓手续费
+                        "close_cost": 0.0015, # 清仓手续费
+                        "min_cost": 5,# 最小交易费用
                     },
                 },
             }
