@@ -33,7 +33,6 @@ class CustomAlpha158(Alpha158):
         filter_pipe=None,
         inst_processors=None,
         feature_whitelist: Optional[List[str]] = None,  # 白名单参数
-        feature_registry = None,  # 白名单参数
         **kwargs
     ):
         """
@@ -42,7 +41,7 @@ class CustomAlpha158(Alpha158):
                               如果为 None，则使用全部特征（与原始 Alpha158 行为一致）
         """
         self.feature_whitelist = feature_whitelist
-        self.feature_registry = feature_registry or {}
+      
         super().__init__(
             instruments=instruments,
             start_time=start_time,
@@ -241,7 +240,7 @@ if __name__ == "__main__":
         infer_processors=[],  # 可自定义预处理器
         learn_processors=[],  # 可自定义标签处理器
         # feature_whitelist = whitelist,  # 传入白名单
-        feature_registry=feature_funcs
+        # feature_registry=feature_funcs
     )
     
     # 获取数据
