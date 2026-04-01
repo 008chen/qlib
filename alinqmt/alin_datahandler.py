@@ -129,95 +129,72 @@ class CustomAlpha158(Alpha158):
         # Ref($close, -N) 表示未来第N天的收盘价
         return ["(Ref($high, -1)-$close) >($close - $low + 1e-12)"], ["LABEL0"]
     
-    def fetch(self, selector=None, level='datetime', col_set='feature', 
-              data_key=DataHandlerLP.DK_I, **kwargs):
-        """
-        重写 fetch 方法，在返回数据时动态添加代码计算的特征
-        """
-        # 获取父类的数据
-        df = super().fetch(selector=selector, level=level, col_set=col_set, 
-                          data_key=data_key, **kwargs)
+    # def fetch(self, selector=None, level='datetime', col_set='feature', 
+    #           data_key=DataHandlerLP.DK_I, **kwargs):
+    #     """
+    #     重写 fetch 方法，在返回数据时动态添加代码计算的特征
+    #     """
+    #     # 获取父类的数据
+    #     df = super().fetch(selector=selector, level=level, col_set=col_set, 
+    #                       data_key=data_key, **kwargs)
         
-        print(f"selector:{selector}")
-        print(f"level:{level}")
-        print(f"================ {col_set} ================")
-        print(f"DataFrame 形状: {df.shape}")
-        print(f"列索引类型: {type(df.columns)}")
-        print(f"所有列名: {df.columns.tolist()}")   
+    #     print(f"selector:{selector}")
+    #     print(f"level:{level}")
+    #     print(f"================ {col_set} ================")
+    #     print(f"DataFrame 形状: {df.shape}")
+    #     print(f"列索引类型: {type(df.columns)}")
+    #     print(f"所有列名: {df.columns.tolist()}")   
         
-        # 如果是特征集，添加自定义代码特征
-        if col_set == 'feature' or col_set == '__all':
-            raw_df = D.features(self.instruments, fields= ["$open","$high","$low","$close"],start_time=selector[0],end_time=selector[1] )
-            print(f"===============")
-            print(raw_df)
-            df = self.add_code_features(df)
-        print(f"-------------------${col_set}--------------------------")
-        print(df)
-        return df
+    #     # 如果是特征集，添加自定义代码特征
+    #     if col_set == 'feature' or col_set == '__all':
+    #         raw_df = D.features(self.instruments, fields= ["$open","$high","$low","$close"],start_time=selector[0],end_time=selector[1] )
+    #         print(f"===============")
+    #         print(raw_df)
+    #         df = self.add_code_features(df)
+    #     print(f"-------------------${col_set}--------------------------")
+    #     print(df)
+    #     return df
     
-    def add_code_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """使用 pandas 添加自定义特征"""
-        # 创建副本避免修改原始数据
-        df = df.copy()
+    # def add_code_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    #     """使用 pandas 添加自定义特征"""
+    #     # 创建副本避免修改原始数据
+    #     df = df.copy()
         
-        # 获取列名（根据实际数据格式调整）
-        close_cols = [c for c in df.columns if 'close' in c.lower() or 'CLOSE' in c]
-        if not close_cols:
-            return df
+    #     # 获取列名（根据实际数据格式调整）
+    #     close_cols = [c for c in df.columns if 'close' in c.lower() or 'CLOSE' in c]
+    #     if not close_cols:
+    #         return df
         
-        close_col = close_cols[0]
-        close = df[close_col]
+    #     close_col = close_cols[0]
+    #     close = df[close_col]
         
-        # 按股票分组计算
-        def calc_group(group):
-            group = group.sort_index(level='datetime')
-            c = group[close_col]
+    #     # 按股票分组计算
+    #     def calc_group(group):
+    #         group = group.sort_index(level='datetime')
+    #         c = group[close_col]
             
-            # 代码计算的特征
-            group['MA_RATIO_5_CODE'] = c.rolling(5).mean() / c
-            group['RSI_CODE'] = self._calc_rsi(c)
-            group['MOM_CODE'] = (c - c.shift(10)) / c.shift(10)
+    #         # 代码计算的特征
+    #         group['MA_RATIO_5_CODE'] = c.rolling(5).mean() / c
+    #         group['RSI_CODE'] = self._calc_rsi(c)
+    #         group['MOM_CODE'] = (c - c.shift(10)) / c.shift(10)
             
-            return group
+    #         return group
         
-        # 应用分组计算
-        df = df.groupby(level='instrument').apply(calc_group)
-        df = df.dropna()
+    #     # 应用分组计算
+    #     df = df.groupby(level='instrument').apply(calc_group)
+    #     df = df.dropna()
         
-        return df
+    #     return df
     
-    def _calc_rsi(self, series: pd.Series, period=14) -> pd.Series:
-        """计算 RSI 的辅助方法"""
-        delta = series.diff()
-        gain = delta.clip(lower=0).rolling(period).mean()
-        loss = (-delta.clip(upper=0)).rolling(period).mean()
-        rs = gain / loss
-        return 100 - (100 / (1 + rs))
+    # def _calc_rsi(self, series: pd.Series, period=14) -> pd.Series:
+    #     """计算 RSI 的辅助方法"""
+    #     delta = series.diff()
+    #     gain = delta.clip(lower=0).rolling(period).mean()
+    #     loss = (-delta.clip(upper=0)).rolling(period).mean()
+    #     rs = gain / loss
+    #     return 100 - (100 / (1 + rs))
     
-    # def fetch(self, *args, **kwargs):
-    #     # 先获取原始价格数据（不经过 Alpha158 的特征计算）
-    #     from qlib.data import D
-        
-    #     instruments = self.instruments
-    #     fields = ["$close", "$open", "$high", "$low", "$volume", "$vwap"]
-        
-    #     # 直接获取原始数据
-    #     raw_data = D.features(instruments, fields, self.start_time, self.end_time)
-        
-    #     # 自定义特征工程（纯 Python 实现）
-    #     features = self._calculate_custom_features(raw_data)
-        
-    #     return features
-    
-    # def _calculate_custom_features(self, df):
-    #     """完全自定义的特征计算（非表达式）"""
-    #     feature_df = pd.DataFrame(index=df.index)
-        
-    #     # 价格特征
-    #     feature_df["price_range"] = (df["$high"] - df["$low"]) / df["$close"]
-        
-    #     return feature_df
-    
+  
 
 def calc_cci(close, open_p, high, low, volume, period=20):
     """商品通道指数 (CCI)"""
