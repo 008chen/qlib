@@ -51,6 +51,22 @@ class LGBModel(ModelFT, LightGBMFInt):
                     w = reweighter.reweight(df)
                 else:
                     raise ValueError("Unsupported reweighter type.")
+                
+                # ==================== 关键修改开始 ====================
+                # 获取特征名列表（从 pandas DataFrame 的列名）
+                feature_names = x.columns.tolist()
+                
+                # 创建 Dataset 时显式传入 feature_name
+                ds_l.append((
+                    lgb.Dataset(
+                        x.values, 
+                        label=y, 
+                        weight=w,
+                        feature_name=feature_names  # <-- 新增：传递特征名
+                    ), 
+                    key
+                ))
+                
                 ds_l.append((lgb.Dataset(x.values, label=y, weight=w, free_raw_data=False), key))
         return ds_l
 
