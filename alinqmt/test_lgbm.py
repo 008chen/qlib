@@ -15,10 +15,10 @@ from sklearn.metrics import accuracy_score, classification_report
 import matplotlib.pyplot as plt
 
 
-stock_list=["SZ002285","SH601577"]
-
+# stock_list=["SZ002285","SH601577"]
+stock_list=["SZ002285"]
 start_time = '2026-01-01'
-end_time='2026-02-15'
+end_time='2026-01-15'
 
 segments = {
     "train": (start_time, end_time),
@@ -197,7 +197,7 @@ if __name__ == "__main__":
 
     # 1. 指定要绘制的树的索引，0 代表第一棵树
     tree_index = 0
-
+    train_data = dataset.prepare('train')[0:1]
     # 2. 创建 Graphviz 图形对象
     #    show_info 参数是信息全面的关键，可以添加多种信息到节点上
     graph = lgb.create_tree_digraph(
@@ -211,7 +211,8 @@ if __name__ == "__main__":
         'leaf_weight',     # 叶子节点总权重
         'internal_weight', # 内部节点总权重
         'data_percentage'  # 数据百分比
-        ]
+        ],
+        example_case=train_data, # 高亮显示此样本的决策路径
     )
 
     # 3. 渲染并查看图形

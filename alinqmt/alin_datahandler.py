@@ -250,7 +250,7 @@ if __name__ == "__main__":
         "test": ("2026-01-01", "2026-01-12"),
     })
     
-    # df_train = dataset.prepare("train")
+    df_train = dataset.prepare("train")
    
     # print(f"特征数量: {len(df_train.columns)}")  
     # print(f"新增特征: {[c for c in df_train.columns if c.startswith('ali_')]}")
@@ -340,6 +340,9 @@ if __name__ == "__main__":
 
     # 2. 创建 Graphviz 图形对象
     #    show_info 参数是信息全面的关键，可以添加多种信息到节点上
+    
+    sample = df_train.iloc[0:1]  # 取第一个样本，保持DataFrame格式
+    
     graph = lgb.create_tree_digraph(
         booster, 
         tree_index=tree_index,
@@ -351,7 +354,8 @@ if __name__ == "__main__":
         'leaf_weight',     # 叶子节点总权重
         'internal_weight', # 内部节点总权重
         'data_percentage'  # 数据百分比
-        ]
+        ],
+        example_case=sample,  # 高亮显示此样本的决策路径
     )
 
     # 3. 渲染并查看图形
