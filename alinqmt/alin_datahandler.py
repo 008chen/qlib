@@ -60,8 +60,10 @@ class CustomAlpha158(Alpha158):
     # 分组定义特征，便于管理
     CUSTOM_FEATURES = {
         "momentum": {
-            "ali_ibs": "100*($close - $low)/($high-$low  + 1e-12)",
-            # "ali_atr": "($high-$low)/ATR($high, $low, $close, 14)",
+            # "ali_ibs": "100*($close - $low)/($high-$low  + 1e-12)",
+            # "ali_inside_bar": "($high < Ref($high, 1)) & ($low > Ref($low, 1))",
+            # "ali_outside_bar": "($high > Ref($high, 1)) & ($low < Ref($low, 1))",
+         
         }
         # "volatility": {
         #     "MY_VOL_5": "Std($close, 5)",

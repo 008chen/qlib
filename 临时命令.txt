@@ -9,3 +9,8 @@ C:\Users\17284\AppData\Local\Programs\Python\Python312\python.exe -m pip install
 
 C:\Users\17284\AppData\Local\Programs\Python\Python312\python.exe -m mlflow ui --backend-store-uri "file:///D:/code/qlib/demo2/mlruns" --host 0.0.0.0 --port 5000
 http://localhost:5000/
+
+
+
+qlib在线学习
+http://www.shouhu1.com/lianghua/kuangjia/qlib/7.%E6%8A%95%E8%B5%84%E7%BB%84%E5%90%88%E7%AD%96%E7%95%A5.html

@@ -18,10 +18,12 @@ import graphviz
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn import tree
 
-# stock_list=["SZ002285","SH601577"]
-stock_list=["SZ002285"]
-start_time = '2026-01-01'
-end_time='2026-02-15'
+import features
+
+# stock_list=["SZ002285"]
+stock_list="all"
+start_time = '2020-01-01'
+end_time='2025-01-01'
 
 segments = {
     "train": (start_time, end_time),
@@ -46,31 +48,22 @@ if __name__ == "__main__":
 
     # 获取 Alpha158 的原始数据（包含特征和标签）
     alpha158_data = alpha158_handler.fetch(data_key=DataHandlerLP.DK_L)
+    
+    instruments = D.instruments(market=stock_list)
 
     # 3. 计算 TA-Lib 指标
     # instruments = D.instruments(market='csi300')
     raw_data = D.features(
-        instruments=stock_list, 
+        instruments=instruments, 
         fields=['$close', '$high', '$low', '$open', '$volume'], 
         start_time=start_time, 
         end_time=end_time
     )
  
 
-    def calc_talib_features(group):
-        group = group.dropna()
-        close = group['$close'].values.astype(np.float64)
-        high = group['$high'].values.astype(np.float64)
-        low = group['$low'].values.astype(np.float64)
-        
-        features = pd.DataFrame(index=group.index)
-   
-        # features['ATR14'] = talib.ATR(high, low, close, 14)
-
-        return features
     
     # print(raw_data)
-    talib_features = raw_data.groupby(level='instrument').apply(calc_talib_features)
+    talib_features = raw_data.groupby(level='instrument').apply(features.calc_talib_features)
     talib_features = talib_features.droplevel(0)
     talib_features = talib_features.reset_index().set_index(['datetime', 'instrument']).sort_index()
 
@@ -92,7 +85,7 @@ if __name__ == "__main__":
     combined_data.columns = pd.MultiIndex.from_tuples(new_columns)
     
     print(combined_data)
-    print(combined_data.describe())
+    # print(combined_data.describe())
 
     # 创建 Handler
     handler = DataHandlerLP.from_df(combined_data)
@@ -114,7 +107,7 @@ if __name__ == "__main__":
     # 获取特征名列表（关键！用于可视化显示）
     feature_names = X_train.columns.tolist()
     print(f"特征数量: {len(feature_names)}")
-    print(f"特征名: {feature_names[:5]}...")  # 显示前5个
+    print(f"特征名: {feature_names[:]}...")  # 显示前5个
     
     # 转换为 numpy 数组（sklearn 需要）
     X_train_np = X_train.values
@@ -133,7 +126,7 @@ if __name__ == "__main__":
     print("\n训练决策树模型...")
     model = DecisionTreeClassifier(
         criterion='gini',        # 分裂标准：'gini' 或 'entropy'
-        max_depth=2,             # 树的最大深度（防止过拟合）
+        max_depth=3,             # 树的最大深度（防止过拟合）
         min_samples_split=2,    # 内部节点再划分所需最小样本数
         min_samples_leaf=2,     # 叶子节点最小样本数
         random_state=42,         # 随机种子（保证可复现）
@@ -202,7 +195,7 @@ if __name__ == "__main__":
         # 信息控制参数
         impurity=True,                  # 显示 gini/entropy（默认）
         node_ids=True,                  # ⭐ 新增：显示节点编号如 "node #0"
-        # proportion=True,                # ⭐ 新增：显示样本比例（如 50.0%）
+        proportion=True,                # ⭐ 新增：显示样本比例（如 50.0%）
         
         # 布局参数
         rotate=False,                   # ⭐ 可改为 True 横向显示

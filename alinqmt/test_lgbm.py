@@ -16,9 +16,9 @@ import matplotlib.pyplot as plt
 
 
 # stock_list=["SZ002285","SH601577"]
-stock_list=["SZ002285"]
-start_time = '2026-01-01'
-end_time='2026-01-15'
+stock_list="all"
+start_time = '2024-01-01'
+end_time='2025-01-01'
 
 segments = {
     "train": (start_time, end_time),
@@ -45,9 +45,9 @@ if __name__ == "__main__":
     alpha158_data = alpha158_handler.fetch(data_key=DataHandlerLP.DK_L)
 
     # 3. 计算 TA-Lib 指标
-    # instruments = D.instruments(market='csi300')
+    instruments = D.instruments(market=stock_list)
     raw_data = D.features(
-        instruments=stock_list, 
+        instruments=instruments, 
         fields=['$close', '$high', '$low', '$open', '$volume'], 
         start_time=start_time, 
         end_time=end_time
