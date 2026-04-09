@@ -61,19 +61,12 @@ class CustomAlpha158(Alpha158):
     CUSTOM_FEATURES = {
         "momentum": {
             # "ali_ibs": "100*($close - $low)/($high-$low  + 1e-12)",
-            # "ali_inside_bar": "($high < Ref($high, 1)) & ($low > Ref($low, 1))",
+            "ali_inside_bar": "($high < Ref($high, 1)) & ($low > Ref($low, 1))",
             # "ali_outside_bar": "($high > Ref($high, 1)) & ($low < Ref($low, 1))",
          
         }
-        # "volatility": {
-        #     "MY_VOL_5": "Std($close, 5)",
-        #     "MY_VOL_20": "Std($close, 20)",
-        # },
-        # "volume": {
-        #     "MY_VP_RATIO": "$volume/Ref($volume, 1)",
-        #     "MY_AMT_MA5": "Mean($amount, 5)",
-        # }
-    }
+       
+        }
 
     
     def get_feature_config(self):
@@ -126,9 +119,13 @@ class CustomAlpha158(Alpha158):
             return filtered_fields + my_exprs, filtered_names + my_names
         
     def get_label_config(self):
+        
+        
         # 自定义未来N日的收益率作为标签
         # Ref($close, -N) 表示未来第N天的收盘价
         return ["(Ref($high, -1)-$close) >($close - $low + 1e-12)"], ["LABEL0"]
+    
+    
     
     # def fetch(self, selector=None, level='datetime', col_set='feature', 
     #           data_key=DataHandlerLP.DK_I, **kwargs):

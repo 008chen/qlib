@@ -17,23 +17,52 @@ def calc_talib_features(group):
     open = group['$low'].values.astype(np.float64)
     
     group['atr10'] = talib.ATR(high, low, close, 10)
-    group['ibs'] = _calculate_ibs(open, high, low, close)
+    group['ibs'] = _calculate_ibs(group)
 
     # group['ATR14'] = talib.ATR(high, low, close, 14)
     
     # print(group)
     group = _calc_breakout(group)
-    # print(group)
+    group = _calc_label(group)
 
+    # group.drop(['ibs','range', '$close', '$high', '$low', '$open', '$volume','atr10','bar_dir', 'direction'], axis=1, inplace=True)
+    group.drop(['ibs','range', 'atr10','bar_dir', 'direction'], axis=1, inplace=True)
     return group
 
-def _calculate_ibs(open_, high, low, close):
+def _calc_label(df):
+    df_reversed = df[::-1]
+    # 2. 使用 rolling 计算窗口最大值
+    # window=20 表示窗口大小，min_periods=1 表示不足20行也计算
+    # shift(1) 表示向下移动一位，确保不包含“当前行”（在倒序视角下是上一行）
+    # df_reversed['label_max_next_20'] = (df_reversed["$high"]/df_reversed["$factor"]).rolling(window=20, min_periods=1).max().shift(1)
+    # df_reversed['label_min_next_20'] = (df_reversed["$low"]/df_reversed["$factor"]).rolling(window=20, min_periods=1).max().shift(1)
+    df_reversed['label_max_next_20'] = df_reversed["$high"].rolling(window=20, min_periods=1).max().shift(1)
+    df_reversed['label_min_next_20'] = df_reversed["$low"].rolling(window=20, min_periods=1).min().shift(1)
+    
+    df = df_reversed[::-1]
+    distance = df['$close'] - (df['$close'].shift(1))
+    
+    
+    # df['min_next_20'] = df["$low"].rolling(window=20, min_periods=1).max().shift(1)
+    return df
+
+def _calculate_ibs(df):
+
     """计算IBS (Indicator Bar Strength)"""
+    
     # IBS = (收盘价 - 最低价) / (最高价 - 最低价) * 100
     # 避免除零错误
-    range_ = high - low
-    range_[range_ == 0] = np.nan
-    ibs = (close - low) / range_ * 100
+    range_ = df['$high'] - df['$low']
+  
+    ibs = (df['$close'] - df['$low']) / range_ * 100
+    
+    zero_range_mask = range_ == 0 
+    # 今日close > 昨日close 的情况
+    price_up_mask = df['$close'] > df['$close'].shift(1)
+    ibs = np.where(zero_range_mask & price_up_mask, 100, ibs)
+    # 今日close <= 昨日close 的情况
+    ibs = np.where(zero_range_mask & ~price_up_mask, 0, ibs)
+    
     return ibs
 
 
@@ -167,6 +196,6 @@ def _calc_breakout(df):
     df['breakout_bar'] = df['pattern_flag'].shift(-1)
     
     
-    df.drop(['ibs','range', '$close', '$high', '$low', '$open', '$volume','atr10','bar_dir', 'direction'], axis=1, inplace=True)
+   
     
     return df
