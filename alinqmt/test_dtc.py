@@ -20,9 +20,9 @@ from sklearn import tree
 
 import features
 
-stock_list=["SZ002285"]
-# stock_list="all"
-start_time = '2026-01-01'
+# stock_list=["SZ002285"]
+stock_list="all"
+start_time = '2020-01-01'
 end_time='2026-03-20'
 
 segments = {
@@ -52,19 +52,16 @@ if __name__ == "__main__":
     instruments = D.instruments(market=stock_list)
 
     # 3. 计算 TA-Lib 指标
-    # instruments = D.instruments(market='csi300')
-    temp_fields = ['$close','$high', '$high/$factor', '$low', '$open', '$volume','$factor','IdxMax($high, 20)','Ref(IdxMax($high, 20), 20)']
+    # '$volume','$factor','Ref(IdxMax($high, 20), -20)','Ref(IdxMin($low, 20), -20)'
     raw_data = D.features(
         instruments=instruments, 
-        fields=temp_fields, 
+        fields=['$close/$factor','$high/$factor', '$low/$factor', '$open/$factor' ], 
         start_time=start_time, 
         end_time=end_time
     )
-    
+    raw_data.rename(columns={'$close/$factor': 'close', '$high/$factor': 'high','$low/$factor': 'low','$open/$factor': 'open'}, inplace=True)
    
 
-    
-    print(raw_data)
     talib_features = raw_data.groupby(level='instrument').apply(features.calc_talib_features)
     talib_features = talib_features.droplevel(0)
     talib_features = talib_features.reset_index().set_index(['datetime', 'instrument']).sort_index()
@@ -74,12 +71,12 @@ if __name__ == "__main__":
     combined_data = alpha158_data.join(talib_features, how='inner')
     
 
-    combined_data.drop(temp_fields, axis=1, inplace=True)
-    
+    combined_data.drop(['open','high','low','close','LABEL0'], axis=1, inplace=True)
+
     new_columns = []
-    label_cols = ['LABEL0','label_max_next_20']
+   
     for col in combined_data.columns.get_level_values(0):
-        if col not in label_cols:
+        if not col.startswith("LABEL"):
             new_columns.append(('feature', col))
         else:
             new_columns.append(('label', col))
@@ -87,7 +84,7 @@ if __name__ == "__main__":
     combined_data.columns = pd.MultiIndex.from_tuples(new_columns)
     
    
-    print(combined_data)
+    # print(combined_data)
    
     # print(combined_data.describe())
 
@@ -104,9 +101,10 @@ if __name__ == "__main__":
     print("\n准备训练数据...")
     train_data = dataset.prepare("train")
     
+    use_label= 'LABEL_BO'
     # 分离特征和标签
-    X_train = train_data.drop('LABEL0', axis=1)
-    y_train = train_data['LABEL0']
+    X_train = train_data.drop(use_label, axis=1)
+    y_train = train_data[use_label]
     
     # 获取特征名列表（关键！用于可视化显示）
     feature_names = X_train.columns.tolist()
@@ -121,8 +119,8 @@ if __name__ == "__main__":
     test_data = dataset.prepare("test")
     # todo
     test_data = train_data
-    X_test = test_data.drop('LABEL0', axis=1)
-    y_test = test_data['LABEL0']
+    X_test = test_data.drop(use_label, axis=1)
+    y_test = test_data[use_label]
     X_test_np = X_test.values
     y_test_np = y_test.values
     
@@ -130,7 +128,7 @@ if __name__ == "__main__":
     print("\n训练决策树模型...")
     model = DecisionTreeClassifier(
         criterion='gini',        # 分裂标准：'gini' 或 'entropy'
-        max_depth=3,             # 树的最大深度（防止过拟合）
+        max_depth=2,             # 树的最大深度（防止过拟合）
         min_samples_split=2,    # 内部节点再划分所需最小样本数
         min_samples_leaf=2,     # 叶子节点最小样本数
         random_state=42,         # 随机种子（保证可复现）
@@ -161,6 +159,16 @@ if __name__ == "__main__":
     # 混淆矩阵
     cm = confusion_matrix(y_test_np, pred)
     print(f"\n混淆矩阵:\n{cm}")
+    
+    cm_ratio = cm / cm.sum()
+    print(f"\n混淆矩阵（整体比例）:\n{cm_ratio.round(4)}")
+    
+    cm_row_ratio = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    print(f"\n混淆矩阵（行比例 - Recall）:\n{cm_row_ratio.round(4)}")
+    
+    cm_col_ratio = cm.astype('float') / cm.sum(axis=0)[np.newaxis, :]
+    print(f"\n混淆矩阵（列比例 - Precision）:\n{cm_col_ratio.round(4)}")
+
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     disp.plot(cmap=plt.cm.Blues)
     plt.title('Confusion Matrix')
@@ -168,83 +176,83 @@ if __name__ == "__main__":
 
     # ==================== 决策树可视化（多种方式）====================
     
-    # # 方式一：matplotlib 直接绘制（简单，但美观度一般）
-    # plt.figure(figsize=(20, 10))
-    # plot_tree(
-    #     model,
-    #     feature_names=feature_names,      # 显示真实特征名！
-    #     class_names=['Down', 'Up'],         # 类别名称
-    #     filled=True,                        # 填充颜色
-    #     rounded=True,                       # 圆角节点
-    #     fontsize=10,
-    #     precision=4,
-    #     max_depth=3                         # 限制显示深度
-    # )
-    # plt.title('Decision Tree Visualization (Matplotlib)')
-    # plt.savefig('./alinqmt/decision_tree_mpl.png', dpi=300, bbox_inches='tight')
-    # print("\n决策树图已保存: decision_tree_mpl.png")
-    # plt.show()
+    # 方式一：matplotlib 直接绘制（简单，但美观度一般）
+    plt.figure(figsize=(20, 10))
+    plot_tree(
+        model,
+        feature_names=feature_names,      # 显示真实特征名！
+        class_names=['nan','Up','Down'],         # 类别名称
+        filled=True,                        # 填充颜色
+        rounded=True,                       # 圆角节点
+        fontsize=10,
+        precision=4,
+        max_depth=3                         # 限制显示深度
+    )
+    plt.title('Decision Tree Visualization (Matplotlib)')
+    plt.savefig('./alinqmt/decision_tree_mpl.png', dpi=300, bbox_inches='tight')
+    print("\n决策树图已保存: decision_tree_mpl.png")
+    plt.show()
 
-    # # 方式二：使用 graphviz（更美观，支持 PDF/SVG）
-    # print("\n生成 Graphviz 可视化...")
-    # dot_data = tree.export_graphviz(
-    #     model,                          # 决策树模型
-    #     out_file=None,                  # 不输出文件，直接返回字符串
-    #     feature_names=feature_names,    # 特征名（已设置）
-    #     class_names=['Down', 'Up'],     # 类别名
-    #     filled=True,                    # ✅ 按类别填充颜色
-    #     rounded=True,                   # ✅ 圆角节点
-    #     special_characters=True,        # ⭐ 新增：支持特殊字符
+    # 方式二：使用 graphviz（更美观，支持 PDF/SVG）
+    print("\n生成 Graphviz 可视化...")
+    dot_data = tree.export_graphviz(
+        model,                          # 决策树模型
+        out_file=None,                  # 不输出文件，直接返回字符串
+        feature_names=feature_names,    # 特征名（已设置）
+        class_names=['nan','Up','Down'],     # 类别名
+        filled=True,                    # ✅ 按类别填充颜色
+        rounded=True,                   # ✅ 圆角节点
+        special_characters=True,        # ⭐ 新增：支持特殊字符
         
-    #     # 信息控制参数
-    #     impurity=True,                  # 显示 gini/entropy（默认）
-    #     node_ids=True,                  # ⭐ 新增：显示节点编号如 "node #0"
-    #     proportion=True,                # ⭐ 新增：显示样本比例（如 50.0%）
+        # 信息控制参数
+        impurity=True,                  # 显示 gini/entropy（默认）
+        node_ids=True,                  # ⭐ 新增：显示节点编号如 "node #0"
+        proportion=True,                # ⭐ 新增：显示样本比例（如 50.0%）
         
-    #     # 布局参数
-    #     rotate=False,                   # ⭐ 可改为 True 横向显示
-    #     leaves_parallel=False,          # ⭐ 可改为 True 对齐叶子节点
+        # 布局参数
+        rotate=False,                   # ⭐ 可改为 True 横向显示
+        leaves_parallel=False,          # ⭐ 可改为 True 对齐叶子节点
         
-    #     precision=4,                    # 小数位数（默认3）
-    # )
+        precision=4,                    # 小数位数（默认3）
+    )
     
-    # # 渲染为 PNG
-    # graph = graphviz.Source(dot_data)
-    # graph.render('./alinqmt/decision_tree_graphviz', format='png', cleanup=True)
-    # print("决策树图已保存: decision_tree_graphviz.png")
+    # 渲染为 PNG
+    graph = graphviz.Source(dot_data)
+    graph.render('./alinqmt/decision_tree_graphviz', format='png', cleanup=True)
+    print("决策树图已保存: decision_tree_graphviz.png")
     
-    # # 也可以保存为 PDF（矢量图，更清晰）
-    # graph.render('./alinqmt/decision_tree_graphviz', format='pdf', cleanup=True)
-    # print("决策树图已保存: decision_tree_graphviz.pdf")
+    # 也可以保存为 PDF（矢量图，更清晰）
+    graph.render('./alinqmt/decision_tree_graphviz', format='pdf', cleanup=True)
+    print("决策树图已保存: decision_tree_graphviz.pdf")
 
-    # # 方式三：文本形式展示树结构（快速查看）
-    # print("\n" + "="*50)
-    # print("决策树文本结构：")
-    # print("="*50)
-    # tree_rules = tree.export_text(model, feature_names=feature_names, max_depth=3)
-    # print(tree_rules)
+    # 方式三：文本形式展示树结构（快速查看）
+    print("\n" + "="*50)
+    print("决策树文本结构：")
+    print("="*50)
+    tree_rules = tree.export_text(model, feature_names=feature_names, max_depth=3)
+    print(tree_rules)
     
-    # # 保存文本规则
-    # with open('./alinqmt/decision_tree_rules.txt', 'w') as f:
-    #     f.write(tree_rules)
-    # print("决策树规则已保存: decision_tree_rules.txt")
+    # 保存文本规则
+    with open('./alinqmt/decision_tree_rules.txt', 'w') as f:
+        f.write(tree_rules)
+    print("决策树规则已保存: decision_tree_rules.txt")
 
-    # # 8. 特征重要性分析
-    # print("\n" + "="*50)
-    # print("特征重要性 Top 10：")
-    # print("="*50)
-    # importances = pd.Series(model.feature_importances_, index=feature_names)
-    # top_features = importances.sort_values(ascending=False).head(10)
-    # print(top_features)
+    # 8. 特征重要性分析
+    print("\n" + "="*50)
+    print("特征重要性 Top 10：")
+    print("="*50)
+    importances = pd.Series(model.feature_importances_, index=feature_names)
+    top_features = importances.sort_values(ascending=False).head(10)
+    print(top_features)
     
-    # # 绘制特征重要性
-    # plt.figure(figsize=(10, 6))
-    # top_features.plot(kind='barh')
-    # plt.title('Top 10 Feature Importances')
-    # plt.xlabel('Importance')
-    # plt.tight_layout()
-    # plt.savefig('./alinqmt/feature_importance.png', dpi=300)
-    # print("特征重要性图已保存: feature_importance.png")
-    # plt.show()
+    # 绘制特征重要性
+    plt.figure(figsize=(10, 6))
+    top_features.plot(kind='barh')
+    plt.title('Top 10 Feature Importances')
+    plt.xlabel('Importance')
+    plt.tight_layout()
+    plt.savefig('./alinqmt/feature_importance.png', dpi=300)
+    print("特征重要性图已保存: feature_importance.png")
+    plt.show()
     
     

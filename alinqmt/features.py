@@ -11,40 +11,118 @@ def calc_talib_features(group):
         
     '''
     group = group.dropna()
-    close = group['$close'].values.astype(np.float64)
-    high = group['$high'].values.astype(np.float64)
-    low = group['$low'].values.astype(np.float64)
-    open = group['$low'].values.astype(np.float64)
+    close = group['close'].values.astype(np.float64)
+    high = group['high'].values.astype(np.float64)
+    low = group['low'].values.astype(np.float64)
+    open = group['low'].values.astype(np.float64)
     
     group['atr10'] = talib.ATR(high, low, close, 10)
     group['ibs'] = _calculate_ibs(group)
 
     # group['ATR14'] = talib.ATR(high, low, close, 14)
     
-    # print(group)
-    group = _calc_breakout(group)
-    group = _calc_label(group)
+   
+    # (Breakouts)：由两根K线构成的突破
+    group = _calc_bo_2(group)
+    group = _calc_bo_2_label(group)
+    
+    #
 
-    # group.drop(['ibs','range', '$close', '$high', '$low', '$open', '$volume','atr10','bar_dir', 'direction'], axis=1, inplace=True)
     group.drop(['ibs','range', 'atr10','bar_dir', 'direction'], axis=1, inplace=True)
     return group
 
-def _calc_label(df):
+def _calc_bo_2_label(df):
+    '''
+    1. 突破 (Breakouts)：由两根K线构成的突破，具有以下特征：
+    a. 这两根K线中⾄少有⼀根的波幅（range）⼤于过去10根K线的平均波幅（10ATR）
+    b. 第⼆根K线可能收盘也可能不收盘在第⼀根K线的同向突破点之外，但它必须与第⼀根K线的⽅
+    向相同，才能被认定为突破和持续⾏情。换句话说，这根代表持续⾏情的K线（followthrough bar）并不⼀定需要收盘在突破点之外。突破K线之外，只要⽅向与突破K线⼀致，即
+    可被视为有效的持续⾏情。
+    c. 该K线必须是强劲的：⼀根强劲K线的IBS（Indicator Bar Strength，指标K线强度）对于看涨K
+    线应≥69，对于看跌K线应≤31。IBS将在本⽂档的后续部分进⾏解释。
+    d. ⼀根突破K线可以同时是⼀根反转K线。
+    '''
+    
     df_reversed = df[::-1]
     # 2. 使用 rolling 计算窗口最大值
     # window=20 表示窗口大小，min_periods=1 表示不足20行也计算
     # shift(1) 表示向下移动一位，确保不包含“当前行”（在倒序视角下是上一行）
-    # df_reversed['label_max_next_20'] = (df_reversed["$high"]/df_reversed["$factor"]).rolling(window=20, min_periods=1).max().shift(1)
-    # df_reversed['label_min_next_20'] = (df_reversed["$low"]/df_reversed["$factor"]).rolling(window=20, min_periods=1).max().shift(1)
-    df_reversed['label_max_next_20'] = df_reversed["$high"].rolling(window=20, min_periods=1).max().shift(1)
-    df_reversed['label_min_next_20'] = df_reversed["$low"].rolling(window=20, min_periods=1).min().shift(1)
+    # df_reversed['label_max_next_20'] = df_reversed["high"].rolling(window=20, min_periods=1).max().shift(1)
+    # df_reversed['label_min_next_20'] = df_reversed["low"].rolling(window=20, min_periods=1).min().shift(1)
     
     df = df_reversed[::-1]
-    distance = df['$close'] - (df['$close'].shift(1))
+    df['tp'] = (2* df['close']) - (df['low'].shift(1))
+    df['istop'] = df['low'].shift(1)
     
     
-    # df['min_next_20'] = df["$low"].rolling(window=20, min_periods=1).max().shift(1)
+    # df['min_next_20'] = df["low"].rolling(window=20, min_periods=1).max().shift(1)
+    df['day_2_tp'] = _calc_days_to_cross(df,type='tp')
+    df['day_2_istop'] = _calc_days_to_cross(df,type='istop')
+    
+    
+    df['LABEL_BO'] = np.where(
+        ~df['breakout_bar'] | ((df['day_2_tp'] == 999) & (df['day_2_istop'] == 999) ),              # 如果 breakout_bar 为 False
+        1,                                # 赋值为 1
+        np.where(                         # 否则（即 breakout_bar 为 True）
+            df['day_2_tp'] < df['day_2_istop'], # 再比较两列大小
+            2,                              # 如果 tp > istop，赋值为 2
+            3                               # 否则，赋值为 3
+        )
+    )
+
+    
+    # print(df)
+    
+    df.drop(['tp','istop','day_2_tp','day_2_istop'], axis=1, inplace=True)
+    
     return df
+
+
+
+def _calc_days_to_cross(df,type,window=20):
+   
+    n = len(df)
+    
+    # 创建偏移矩阵的索引
+    # 这一步构建了一个下三角矩阵的变体，用于对齐未来数据
+    valid_len = n - window
+    if valid_len <= 0: 
+        return np.full(n, np.nan)
+    
+    
+
+    
+    # 广播比较：(N, 20) >= (N, 1)
+    # 结果是一个 (N, 20) 的布尔矩阵
+    if type == "tp":
+        high_prices = df['high'].to_numpy()
+        future_prices_matrix = np.array([high_prices[i+1:i+1+window] for i in range(valid_len)])
+        targets = df['tp'].to_numpy()
+        # 获取对应的目标价向量
+        current_targets_vector = targets[:valid_len]
+        reached_matrix = future_prices_matrix >= current_targets_vector[:, np.newaxis]
+    else:
+        low_prices = df['low'].to_numpy()
+        future_prices_matrix = np.array([low_prices[i+1:i+1+window] for i in range(valid_len)])
+        targets = df['istop'].to_numpy()
+        # 获取对应的目标价向量
+        current_targets_vector = targets[:valid_len]
+        reached_matrix = future_prices_matrix >= current_targets_vector[:, np.newaxis]
+    
+    # 计算每一行的第一个 True 的位置
+    # np.argmax 在 axis=1 上操作
+    days_matrix = np.argmax(reached_matrix, axis=1) + 1
+    
+    # 处理那些完全没有达到的行（全为 False 的行，argmax 会返回 0，需要修正为 NaN）
+    days_matrix[~np.any(reached_matrix, axis=1)] = 999
+    
+    # 合并回完整长度的结果
+    result = np.full(n, np.nan)
+    result[:valid_len] = days_matrix
+    
+    result = np.nan_to_num(result, nan=999) # 将所有 NaN 替换为 999
+    return result
+
 
 def _calculate_ibs(df):
 
@@ -52,13 +130,13 @@ def _calculate_ibs(df):
     
     # IBS = (收盘价 - 最低价) / (最高价 - 最低价) * 100
     # 避免除零错误
-    range_ = df['$high'] - df['$low']
+    range_ = df['high'] - df['low']
   
-    ibs = (df['$close'] - df['$low']) / range_ * 100
+    ibs = (df['close'] - df['low']) / range_ * 100
     
     zero_range_mask = range_ == 0 
     # 今日close > 昨日close 的情况
-    price_up_mask = df['$close'] > df['$close'].shift(1)
+    price_up_mask = df['close'] > df['close'].shift(1)
     ibs = np.where(zero_range_mask & price_up_mask, 100, ibs)
     # 今日close <= 昨日close 的情况
     ibs = np.where(zero_range_mask & ~price_up_mask, 0, ibs)
@@ -91,8 +169,8 @@ def _calculate_direct(df):
         instrument_df = df.loc[sorted_idx]
         
         # 使用向量化条件判断
-        C = instrument_df['$close']
-        O = instrument_df['$open']
+        C = instrument_df['close']
+        O = instrument_df['open']
         IBS = instrument_df['ibs']
         
         # 条件1: C > O and IBS >= 50
@@ -156,7 +234,7 @@ def _calculate_direct(df):
    
     return df
 
-def _calc_breakout(df):
+def _calc_bo_2(df):
     """
     识别满足图片中条件的突破模式。
     
@@ -172,7 +250,7 @@ def _calc_breakout(df):
 
     
     # 2. 计算每根K线的波幅(Range)和方向
-    df['range'] = df['$high'] - df['$low']
+    df['range'] = df['high'] - df['low']
     
     df = _calculate_direct(df) 
 
@@ -190,10 +268,10 @@ def _calc_breakout(df):
     condition_c = ((df['direction'] == 1) & (df['ibs'] >= 69)) | ((df['direction'] == -1) & (df['ibs'] <= 31))
     
     # 综合所有条件：当前K线作为“第二根K线”需同时满足a、b、c
-    df['pattern_flag'] = condition_a & condition_b & condition_c
+    df['breakout_bar'] = condition_a & condition_b & condition_c
     
     # 可选：标记“第一根K线”（即前一根K线，当它被作为突破K线时）
-    df['breakout_bar'] = df['pattern_flag'].shift(-1)
+    # df['breakout_bar'] = df['pattern_flag'].shift(-1)
     
     
    
