@@ -30,7 +30,7 @@ def calc_talib_features(group):
     #
     group = _calc_label_1to1_RR(group)
 
-    group.drop(['ibs','range', 'atr10','bar_dir', 'direction'], axis=1, inplace=True,errors='ignore')
+    group.drop(['ibs','range', 'atr10','bar_dir', 'direction','signal'], axis=1, inplace=True,errors='ignore')
     return group
 
 def _calc_label_1to1_RR(df):
@@ -66,7 +66,7 @@ def _calc_label_1to1_RR(df):
     
     # print(df)
     
-    # df.drop(['tp','istop','day_2_tp','day_2_istop'], axis=1, inplace=True)
+    df.drop(['tp','istop','day_2_tp','day_2_istop'], axis=1, inplace=True)
     
     return df
 
@@ -93,14 +93,14 @@ def _calc_days_to_cross(df,type,window=20):
         targets = df['tp'].to_numpy()
         # 获取对应的目标价向量
         current_targets_vector = targets[:valid_len]
-        reached_matrix = future_prices_matrix >= current_targets_vector[:, np.newaxis]
+        reached_matrix = future_prices_matrix > current_targets_vector[:, np.newaxis]
     else:
         low_prices = df['low'].to_numpy()
         future_prices_matrix = np.array([low_prices[i+1:i+1+window] for i in range(valid_len)])
         targets = df['istop'].to_numpy()
         # 获取对应的目标价向量
         current_targets_vector = targets[:valid_len]
-        reached_matrix = future_prices_matrix <= current_targets_vector[:, np.newaxis]
+        reached_matrix = future_prices_matrix < current_targets_vector[:, np.newaxis]
     
     # 计算每一行的第一个 True 的位置
     # np.argmax 在 axis=1 上操作
@@ -150,6 +150,7 @@ def _calculate_direct(df):
     instruments = df.index.get_level_values('instrument').unique()
     
     for instrument in instruments:
+        print(f"计算方向{instrument}")
         # 获取当前instrument的数据
         instrument_mask = df.index.get_level_values('instrument') == instrument
         instrument_data = df.loc[instrument_mask]
@@ -255,15 +256,34 @@ def _calc_bo_2(df):
     # c. 强度条件：根据方向判断IBS
     #    对于看涨K线 (direction == 1): IBS >= 69
     #    对于看跌K线 (direction == -1): IBS <= 31
-    condition_c = ((df['direction'] == 1) & (df['ibs'] >= 69)) | ((df['direction'] == -1) & (df['ibs'] <= 31))
+    condition_c1 = (df['direction'] == 1) & (df['ibs'] >= 69)
+    condition_c2= (df['direction'] == -1) & (df['ibs'] <= 31)
     
     # 综合所有条件：当前K线作为“第二根K线”需同时满足a、b、c
-    df['breakout_bar'] = condition_a & condition_b & condition_c
+    
+    df['signal'] = 0
+    df.loc[condition_a & condition_b & condition_c1, 'signal'] = 1
+    df.loc[condition_a & condition_b & condition_c2, 'signal'] = -1
+    
     df['tp'] = (2* df['close']) - (df['low'].shift(1))
     df['istop'] = df['low'].shift(1)
     
-    # 可选：标记“第一根K线”（即前一根K线，当它被作为突破K线时）
-    # df['breakout_bar'] = df['pattern_flag'].shift(-1)
+    
+    
+    
+    # 标记是否为1
+    is_one = df['signal'] == 1
+
+    # -1 作为分组边界（打断连续的1）
+    group = (df['signal'] == -1).cumsum()
+
+    # 每组内对连续的1计数
+    count_in_group = pd.Series(0, index=df.index)
+    count_in_group[is_one] = df[is_one].groupby(group[is_one]).cumcount().values + 1
+
+    # 条件：是1 且 组内计数 <= 2（前两个1为True，第三个及以上为False）
+    df['breakout_bar'] = is_one & (count_in_group <= 2)
+
 
     return df
 

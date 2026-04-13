@@ -22,7 +22,7 @@ import features
 
 stock_list=["SZ002285"]
 # stock_list="all"
-start_time = '2025-01-01'
+start_time = '2020-01-01'
 end_time = '2026-01-01'
 # end_time='2026-03-20'
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     combined_data = alpha158_data.join(talib_features, how='inner')
     
 
-    combined_data.drop(['open','high','low','close','LABEL0'], axis=1, inplace=True)
+    combined_data.drop(['open','high','low','close','LABEL0','ali_inside_bar'], axis=1, inplace=True)
 
     new_columns = []
    
@@ -88,7 +88,7 @@ if __name__ == "__main__":
                        'display.max_columns', None,
                        'display.width', None):
         print(combined_data)
-   
+        print(combined_data.head(1))
     # print(combined_data.describe())
 
     # 创建 Handler
