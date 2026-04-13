@@ -23,15 +23,17 @@ def calc_talib_features(group):
     
    
     # (Breakouts)：由两根K线构成的突破
-    group = _calc_bo_2(group)
-    group = _calc_bo_2_label(group)
-    
-    #
+    # group = _calc_bo_2(group)
+    group = _calc_big_bo(group)
 
-    group.drop(['ibs','range', 'atr10','bar_dir', 'direction'], axis=1, inplace=True)
+   
+    #
+    group = _calc_label_1to1_RR(group)
+
+    group.drop(['ibs','range', 'atr10','bar_dir', 'direction'], axis=1, inplace=True,errors='ignore')
     return group
 
-def _calc_bo_2_label(df):
+def _calc_label_1to1_RR(df):
     '''
     1. 突破 (Breakouts)：由两根K线构成的突破，具有以下特征：
     a. 这两根K线中⾄少有⼀根的波幅（range）⼤于过去10根K线的平均波幅（10ATR）
@@ -42,17 +44,8 @@ def _calc_bo_2_label(df):
     线应≥69，对于看跌K线应≤31。IBS将在本⽂档的后续部分进⾏解释。
     d. ⼀根突破K线可以同时是⼀根反转K线。
     '''
-    
-    df_reversed = df[::-1]
-    # 2. 使用 rolling 计算窗口最大值
-    # window=20 表示窗口大小，min_periods=1 表示不足20行也计算
-    # shift(1) 表示向下移动一位，确保不包含“当前行”（在倒序视角下是上一行）
-    # df_reversed['label_max_next_20'] = df_reversed["high"].rolling(window=20, min_periods=1).max().shift(1)
-    # df_reversed['label_min_next_20'] = df_reversed["low"].rolling(window=20, min_periods=1).min().shift(1)
-    
-    df = df_reversed[::-1]
-    df['tp'] = (2* df['close']) - (df['low'].shift(1))
-    df['istop'] = df['low'].shift(1)
+
+
     
     
     # df['min_next_20'] = df["low"].rolling(window=20, min_periods=1).max().shift(1)
@@ -73,7 +66,7 @@ def _calc_bo_2_label(df):
     
     # print(df)
     
-    df.drop(['tp','istop','day_2_tp','day_2_istop'], axis=1, inplace=True)
+    # df.drop(['tp','istop','day_2_tp','day_2_istop'], axis=1, inplace=True)
     
     return df
 
@@ -107,7 +100,7 @@ def _calc_days_to_cross(df,type,window=20):
         targets = df['istop'].to_numpy()
         # 获取对应的目标价向量
         current_targets_vector = targets[:valid_len]
-        reached_matrix = future_prices_matrix >= current_targets_vector[:, np.newaxis]
+        reached_matrix = future_prices_matrix <= current_targets_vector[:, np.newaxis]
     
     # 计算每一行的第一个 True 的位置
     # np.argmax 在 axis=1 上操作
@@ -246,9 +239,6 @@ def _calc_bo_2(df):
         df: 添加了识别结果的原始DataFrame，新增列:
             'pattern_flag': 布尔值，当当前K线作为“第二根K线”满足所有条件时为True
     """
-
-
-    
     # 2. 计算每根K线的波幅(Range)和方向
     df['range'] = df['high'] - df['low']
     
@@ -269,11 +259,35 @@ def _calc_bo_2(df):
     
     # 综合所有条件：当前K线作为“第二根K线”需同时满足a、b、c
     df['breakout_bar'] = condition_a & condition_b & condition_c
+    df['tp'] = (2* df['close']) - (df['low'].shift(1))
+    df['istop'] = df['low'].shift(1)
     
     # 可选：标记“第一根K线”（即前一根K线，当它被作为突破K线时）
     # df['breakout_bar'] = df['pattern_flag'].shift(-1)
+
+    return df
+
+
+def _calc_big_bo(df):
+    
+    # 2. 计算每根K线的波幅(Range)和方向
+    df['range'] = df['high'] - df['low']
+    
+
+    # a. 波幅条件：一根大K线的波幅大于过去10根K线平均波幅的2倍。
+    condition_a = df['range'] >  2* df['atr10']
     
     
-   
+    # b. 强度条件：根据方向判断IBS
+    #    对于看涨K线 (direction == 1): IBS >= 69
+    #    对于看跌K线 (direction == -1): IBS <= 31
+    condition_b = df['ibs'] >= 69
+    
+    # 综合所有条件：当前K线作为“第二根K线”需同时满足a、b、c
+    df['breakout_bar'] = condition_a & condition_b 
+    
+
+    df['tp'] = (2* df['close']) - df['low']
+    df['istop'] = df['low']
     
     return df

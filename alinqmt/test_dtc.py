@@ -20,10 +20,11 @@ from sklearn import tree
 
 import features
 
-# stock_list=["SZ002285"]
-stock_list="all"
-start_time = '2020-01-01'
-end_time='2026-03-20'
+stock_list=["SZ002285"]
+# stock_list="all"
+start_time = '2025-01-01'
+end_time = '2026-01-01'
+# end_time='2026-03-20'
 
 segments = {
     "train": (start_time, end_time),
@@ -83,8 +84,10 @@ if __name__ == "__main__":
 
     combined_data.columns = pd.MultiIndex.from_tuples(new_columns)
     
-   
-    # print(combined_data)
+    with pd.option_context('display.max_rows', None, 
+                       'display.max_columns', None,
+                       'display.width', None):
+        print(combined_data)
    
     # print(combined_data.describe())
 
@@ -149,6 +152,8 @@ if __name__ == "__main__":
     
     print(f"预测结果: {pred}")
     print(f"正类概率: {pred_proba}")
+    
+    print(f"类别比例分布: {test_data[use_label].value_counts(normalize=True)}")
                                                  
  # 评估
     accuracy = accuracy_score(y_test_np, pred)
@@ -160,14 +165,14 @@ if __name__ == "__main__":
     cm = confusion_matrix(y_test_np, pred)
     print(f"\n混淆矩阵:\n{cm}")
     
-    cm_ratio = cm / cm.sum()
-    print(f"\n混淆矩阵（整体比例）:\n{cm_ratio.round(4)}")
+    # cm_ratio = cm / cm.sum()
+    # print(f"\n混淆矩阵（整体比例）:\n{cm_ratio.round(4)}")
     
-    cm_row_ratio = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    print(f"\n混淆矩阵（行比例 - Recall）:\n{cm_row_ratio.round(4)}")
+    # cm_row_ratio = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    # print(f"\n混淆矩阵（行比例 - Recall）:\n{cm_row_ratio.round(4)}")
     
-    cm_col_ratio = cm.astype('float') / cm.sum(axis=0)[np.newaxis, :]
-    print(f"\n混淆矩阵（列比例 - Precision）:\n{cm_col_ratio.round(4)}")
+    # cm_col_ratio = cm.astype('float') / cm.sum(axis=0)[np.newaxis, :]
+    # print(f"\n混淆矩阵（列比例 - Precision）:\n{cm_col_ratio.round(4)}")
 
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     disp.plot(cmap=plt.cm.Blues)
